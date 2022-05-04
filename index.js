@@ -5,6 +5,7 @@ const fs = require("fs")
 const readline = require("readline")
 const { Client } = require("@notionhq/client")
 const { google } = require("googleapis")
+const { clearInterval, setInterval } = require("timers")
 
 const notion = new Client({
   auth: process.env.NOTION_TOKEN,
@@ -64,6 +65,39 @@ function getAccessToken(oAuth2Client, callback) {
  * Lists the next 10 events on the user's primary calendar.
  * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
  */
+function createEvents(auth, events) {
+  let APIQueue = [...events]
+  console.log(`Syncing ${events.length} events`)
+
+  const calendar = google.calendar({ version: "v3", auth })
+
+  let intervalId = setInterval(() => {
+    calendar.events.insert(
+      {
+        auth,
+        calendarId: "primary",
+        resource: APIQueue.shift(),
+      },
+      (error, event) => {
+        let status = `${APIQueue.length + 1}/${events.length}`
+        if (error) {
+          if (
+            error.code === 409 &&
+            error.message === "The requested identifier already exists."
+          ) {
+            status += " (skipped)"
+            console.log(status)
+          } else console.log(JSON.stringify(error, null, 2))
+          //TODO Implement logging to Notion
+        }
+      }
+    )
+
+    if (APIQueue.length === 0) {
+      clearInterval(intervalId)
+    }
+  }, 1000)
+}
 
 ;(async () => {
   const myTasks = await notion.databases.query({
@@ -72,59 +106,39 @@ function getAccessToken(oAuth2Client, callback) {
       property: "Schedule",
       date: {
         is_not_empty: true,
-        on_or_after: new Date().toISOString(),
+        on_or_after: new Date("04/20/2022").toISOString(),
       },
     },
   })
 
   //TODO sync events with Google Calendar
-  const events = myTasks.results.map(result => ({
-    summary: result.properties.Name.title[0].plain_text,
-    start: {
-      dateTime: result.properties.Schedule.date.start,
-      timeZone: "America/New_York",
-    },
-    end: {
-      dateTime:
-        result.properties.Schedule.date.end ??
-        result.properties.Schedule.date.start,
-      timeZone: "America/New_York",
-    },
-  }))
+  const events = myTasks.results.map(result => {
+    const date = result.properties.Schedule.date
+    let start, end
 
-  function createEvents(auth) {
-    const calendar = google.calendar({ version: "v3", auth })
-    calendar.events.insert({
-      auth,
-      calendarId: "primary",
-      resource: events[0],
-    })
-    // events.forEach(event => {
-    //   calendar.events.insert(
-    //     {
-    //       auth,
-    //       calendarId: "primary",
-    //       resource: event,
-    //     },
-    //     (err, event) => {
-    //       if (err.code === 409) {
-    //         return
-    //       }
-    //       if (err) {
-    //         console.log(
-    //           "There was an error contacting the Calendar service: " + err
-    //         )
-    //         return
-    //       }
-    //       console.log("Event created: %s", event.htmlLink)
-    //     }
-    //   )
-    // })
-  }
+    start = end = {
+      timeZone: "America/New_York",
+    }
+
+    if (date.start.length > 10) {
+      start.dateTime = date.start
+      end.dateTime = date.end ? date.end : date.start
+    } else {
+      start.date = date.start
+      end.date = date.end ? date.end : date.start
+    }
+
+    return {
+      id: result.id.split("-").join(""),
+      summary: result.properties.Name.title[0].plain_text,
+      start,
+      end,
+    }
+  })
 
   fs.readFile("credentials.json", (err, content) => {
     if (err) return console.log("Error loading client secret file:", err)
     // Authorize a client with credentials, then call the Google Calendar API.
-    authorize(JSON.parse(content), createEvents)
+    authorize(JSON.parse(content), auth => createEvents(auth, events))
   })
 })()
