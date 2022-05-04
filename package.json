@@ -4,6 +4,9 @@
   "main": "index.js",
   "author": "Natanael de Kross",
   "license": "MIT",
+  "scripts": {
+    "start": "node index"
+  },
   "private": true,
   "dependencies": {
     "@notionhq/client": "^1.0.4",
