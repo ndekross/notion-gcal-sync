@@ -106,7 +106,7 @@ function createEvents(auth, events) {
       property: "Schedule",
       date: {
         is_not_empty: true,
-        on_or_after: new Date("04/20/2022").toISOString(),
+        on_or_after: new Date().toISOString(),
       },
     },
   })
