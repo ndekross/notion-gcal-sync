@@ -1,0 +1,13 @@
+{
+  "name": "notion-gcal-sync",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Natanael de Kross",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "@notionhq/client": "^1.0.4",
+    "dotenv": "^16.0.0",
+    "googleapis": "^100.0.0"
+  }
+}
