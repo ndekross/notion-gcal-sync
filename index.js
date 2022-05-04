@@ -101,7 +101,7 @@ function createEvents(auth, events) {
 
 ;(async () => {
   const myTasks = await notion.databases.query({
-    database_id: "124b524bab3d4ba1b27d57f6ff4a612a",
+    database_id: process.env.TASK_DATABASE_ID,
     filter: {
       property: "Schedule",
       date: {
